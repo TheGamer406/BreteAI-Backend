@@ -1,6 +1,6 @@
 # BreteAI-Backend
 
-Backend de [BreteAI](https://github.com/) — scraping de ofertas, pipeline de IA local y API REST.
+Backend de [BreteAI](https://github.com/TheGamer406/BreteAI) — scraping de ofertas, pipeline de IA local y API REST.
 
 ## Responsabilidades
 
