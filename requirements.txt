@@ -1,0 +1,17 @@
+# Dependencias planeadas para Fase 1 (Scraping + DB). Ajustar versiones al
+# implementar - fijar versiones exactas (==) una vez probado, no solo mínimos.
+
+fastapi
+uvicorn[standard]
+sqlalchemy>=2.0
+psycopg[binary]
+pydantic-settings
+apscheduler
+httpx
+python-dotenv
+
+# --- tests ---
+pytest
+pytest-cov
+testcontainers[postgres]
+ruff

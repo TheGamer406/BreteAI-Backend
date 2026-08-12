@@ -14,10 +14,19 @@ Backend de [BreteAI](https://github.com/TheGamer406/BreteAI) — scraping de ofe
 
 Python · FastAPI · Ollama · SQLAlchemy/psycopg (PostgreSQL) · APScheduler.
 
+## Implementación
+
+**Antes de escribir código acá**, leer `docs/GUIA-IMPLEMENTACION.md` (en el repo padre) —
+es el índice por fase con el orden exacto de archivos a completar. El esqueleto de
+`app/` y `tests/` ya existe: cada archivo tiene un docstring con el detalle de qué
+implementar y qué no duplicar.
+
 ## Desarrollo
 
 _Pendiente: instrucciones de setup (venv, dependencias, variables de entorno)._
 
 ```bash
-cp .env.example .env   # configurar credenciales
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env   # configurar credenciales (pendiente crear .env.example)
 ```
