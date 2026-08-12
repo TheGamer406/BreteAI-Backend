@@ -1,17 +1,18 @@
-# Dependencias planeadas para Fase 1 (Scraping + DB). Ajustar versiones al
-# implementar - fijar versiones exactas (==) una vez probado, no solo mínimos.
+# Dependencias Fase 1 (Scraping + DB). Versiones pineadas (2026-08-12)
+# para builds reproducibles; actualizar conscientemente, no por accidente.
 
-fastapi
-uvicorn[standard]
-sqlalchemy>=2.0
-psycopg[binary]
-pydantic-settings
-apscheduler
-httpx
-python-dotenv
+fastapi==0.141.1
+uvicorn[standard]==0.52.1
+sqlalchemy==2.0.52
+psycopg[binary]==3.3.4
+pydantic-settings==2.15.0
+apscheduler==3.11.3
+requests==2.34.2          # cliente HTTP de los conectores
+httpx==0.28.1             # requerido por TestClient de FastAPI (tests, Fase 4)
+python-dotenv==1.2.2
 
 # --- tests ---
-pytest
-pytest-cov
-testcontainers[postgres]
-ruff
+pytest==9.1.1
+pytest-cov==7.1.0
+testcontainers[postgres]==4.15.0
+ruff==0.16.2

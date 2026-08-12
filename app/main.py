@@ -49,4 +49,9 @@ async def root():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    from app.config import get_settings
+
+    settings = get_settings()
+    # Host/puerto vienen de config (default 127.0.0.1 para dev local;
+    # en Docker el compose setea API_HOST=0.0.0.0).
+    uvicorn.run(app, host=settings.api_host, port=settings.api_port)

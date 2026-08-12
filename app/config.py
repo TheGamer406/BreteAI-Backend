@@ -8,6 +8,15 @@ class Settings(BaseSettings):
     # Base de datos (ver BreteAI-Infra/.env.example)
     database_url: str
 
+    # API — default seguro para desarrollo local (solo localhost).
+    # En Docker el compose setea API_HOST=0.0.0.0 para exponer dentro de la red.
+    api_host: str = "127.0.0.1"
+    api_port: int = 8000
+
+    # Correo (Fase 3) — destinatario de las notificaciones. Configurable para
+    # que el proyecto sirva a cualquier usuario sin datos personales en el repo.
+    mail_to: Optional[str] = None
+
     # Adzuna (gratis, 1k llamadas/mes)
     adzuna_app_id: Optional[str] = None
     adzuna_app_key: Optional[str] = None

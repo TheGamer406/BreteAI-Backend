@@ -19,9 +19,11 @@ logger = logging.getLogger(__name__)
 class RemoteOKConnector(BaseConnector):
     fuente = "remoteok"
     _URL = "https://remoteok.com/api"
+    # UA honesto e identificable (proyecto legal-first): la API es pública
+    # pero rechaza los UA default de librerías HTTP. Si algún día bloquea
+    # este UA, reevaluar la fuente antes que disfrazarse de navegador.
     _HEADERS = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-        "(KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        "User-Agent": "BreteAI/0.1 (+https://github.com/TheGamer406/BreteAI; job aggregator, 4 req/day)"
     }
 
     def _fetch(self) -> List[dict]:
