@@ -1,0 +1,33 @@
+{
+  "_nota": "Fixture construido a mano según la documentación pública de Adzuna (no capturado en vivo: requiere ADZUNA_APP_ID/APP_KEY que no están configurados en este entorno de desarrollo). Verificar contra una respuesta real antes de confiar en el mapeo para producción.",
+  "results": [
+    {
+      "id": "4567890123",
+      "title": "Backend Developer (Python)",
+      "company": {
+        "display_name": "Acme Corp"
+      },
+      "location": {
+        "display_name": "London, Greater London"
+      },
+      "salary_min": 45000.0,
+      "salary_max": 60000.0,
+      "created": "2026-08-01T09:12:00Z",
+      "redirect_url": "https://www.adzuna.co.uk/land/ad/4567890123",
+      "description": "We are looking for a backend developer with Python experience..."
+    },
+    {
+      "id": "4567890124",
+      "title": "Data Analyst",
+      "company": {
+        "display_name": "Beta Ltd"
+      },
+      "location": {
+        "display_name": "Manchester"
+      },
+      "created": "2026-08-02T14:30:00Z",
+      "redirect_url": "https://www.adzuna.co.uk/land/ad/4567890124",
+      "description": "Join our data team to analyze trends..."
+    }
+  ]
+}

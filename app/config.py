@@ -1,4 +1,4 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 from typing import Optional
 
@@ -26,9 +26,7 @@ class Settings(BaseSettings):
     lever_companies: str = ""          # ej: "company1,company2"
     ashby_board_names: str = ""        # ej: "board1,board2"
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = False
+    model_config = SettingsConfigDict(env_file=".env", case_sensitive=False)
 
     def get_greenhouse_tokens(self) -> list[str]:
         """Retorna lista de board tokens de Greenhouse."""

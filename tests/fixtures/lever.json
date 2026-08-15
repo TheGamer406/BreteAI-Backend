@@ -1,0 +1,38 @@
+[
+  {
+    "id": "a1b2c3d4-0000-0000-0000-000000000001",
+    "text": "Senior Backend Engineer",
+    "categories": {
+      "location": "Remote - US",
+      "commitment": "Full-time",
+      "team": "Engineering"
+    },
+    "descriptionPlain": "We are looking for a Senior Backend Engineer to join our team.",
+    "hostedUrl": "https://jobs.lever.co/example/a1b2c3d4-0000-0000-0000-000000000001",
+    "createdAt": 1786000000000,
+    "salary": {
+      "min": 140000,
+      "max": 190000,
+      "currency": "USD"
+    }
+  },
+  {
+    "id": "a1b2c3d4-0000-0000-0000-000000000002",
+    "text": "Data Analyst",
+    "categories": {
+      "location": "New York, NY (Hybrid)",
+      "commitment": "Full-time",
+      "team": "Data"
+    },
+    "descriptionPlain": "Analyze product data and build dashboards.",
+    "hostedUrl": "https://jobs.lever.co/example/a1b2c3d4-0000-0000-0000-000000000002",
+    "createdAt": 1786100000000
+  },
+  {
+    "id": "a1b2c3d4-0000-0000-0000-000000000003",
+    "text": "",
+    "categories": {},
+    "hostedUrl": "https://jobs.lever.co/example/a1b2c3d4-0000-0000-0000-000000000003",
+    "createdAt": 1786200000000
+  }
+]

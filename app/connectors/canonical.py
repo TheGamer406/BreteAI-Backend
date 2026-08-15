@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import Optional
 from datetime import date
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 class Modalidad(str, Enum):
     """Modalidad de trabajo: presencial, remoto o mixto."""
@@ -40,5 +40,4 @@ class OfertaCanonica(BaseModel):
     url: str
     fecha_publicacion: Optional[date] = None
 
-    class Config:
-        use_enum_values = False  # Mantener enums como objetos, no strings
+    model_config = ConfigDict(use_enum_values=False)  # Mantener enums como objetos, no strings

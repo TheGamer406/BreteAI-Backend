@@ -9,3 +9,12 @@ cada conector sin hacer llamadas de red. Ver `docs/design.md` §4-A.
 No editar a mano el contenido de estos JSON más allá de recortar el array a
 2-3 items representativos (uno con salario, uno sin, uno con campos
 faltantes) — deben reflejar la forma real de la respuesta.
+
+## Estado (2026-08-12)
+
+7 de 9 son capturas reales (`remotive`, `remoteok`, `arbeitnow`, `jobicy`,
+`himalayas`, `greenhouse` vía board público `gitlab`, `ashby` vía board
+público `notion`). `lever.json` y `adzuna.json` están armados a mano según
+la documentación pública (sin token/board activo disponible en dev) —
+tienen un campo `_nota`/comentario marcándolo; reemplazar por una captura
+real apenas se configure `LEVER_COMPANIES`/`ADZUNA_APP_ID` con datos reales.
