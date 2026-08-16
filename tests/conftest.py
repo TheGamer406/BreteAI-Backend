@@ -107,3 +107,72 @@ def oferta_raw_factory(db_session, corrida_factory):
         return raw
 
     return _crear
+
+
+@pytest.fixture
+def oferta_factory(db_session, oferta_raw_factory):
+    """Helper para sembrar Oferta (no solo OfertaRaw) sin repetir el INSERT
+    en cada test (usado por tests/*/test_correo_*.py)."""
+    from app.db.models import Oferta
+
+    contador = {"n": 0}
+
+    def _crear(**overrides):
+        contador["n"] += 1
+        raw = oferta_raw_factory()
+        defaults = {
+            "raw_id": raw.id,
+            "fuente": raw.fuente,
+            "id_externo": raw.id_externo,
+            "titulo": f"Oferta de prueba {contador['n']}",
+            "descripcion": "Descripción de prueba.",
+            "url": f"https://example.com/oferta-{contador['n']}",
+            "estado": "nueva",
+            "score": 50,
+        }
+        defaults.update(overrides)
+        oferta = Oferta(**defaults)
+        db_session.add(oferta)
+        db_session.commit()
+        db_session.refresh(oferta)
+        return oferta
+
+    return _crear
+
+
+@pytest.fixture(scope="session")
+def mailhog_container():
+    """SMTP falso en contenedor (design.md §4-C) -- vía testcontainers, no
+    en el docker-compose.yml de Infra: MailHog es solo para tests, no debe
+    correr en producción."""
+    from testcontainers.core.container import DockerContainer
+
+    with DockerContainer("mailhog/mailhog:latest").with_exposed_ports(1025, 8025) as container:
+        yield container
+
+
+@pytest.fixture
+def mailhog(mailhog_container):
+    """Host/puertos de MailHog + helper para leer los mensajes recibidos vía
+    su API HTTP. Limpia los mensajes de tests anteriores antes de cada test."""
+    import requests
+
+    host = mailhog_container.get_container_host_ip()
+    smtp_port = int(mailhog_container.get_exposed_port(1025))
+    http_port = int(mailhog_container.get_exposed_port(8025))
+    api_base = f"http://{host}:{http_port}/api/v2"
+
+    # Limpiar TODOS los mensajes es un endpoint de la API v1, no v2 (v2 no
+    # tiene "delete all", solo borrado individual por ID) -- confirmado
+    # corriendo contra un MailHog real, no documentado a ojo.
+    requests.delete(f"http://{host}:{http_port}/api/v1/messages")
+
+    class MailHog:
+        def __init__(self):
+            self.host = host
+            self.smtp_port = smtp_port
+
+        def mensajes(self) -> list:
+            return requests.get(f"{api_base}/messages").json()["items"]
+
+    return MailHog()

@@ -1,33 +1,68 @@
 """
-TODO (Fase 3): orquesta el envío. Es la etapa 3 del pipeline
-(`design.md` §1: `ofertas` -> correo top 5-10).
-
-Qué implementar acá:
-- `enviar_correo_ofertas(db: Session, limite: int = 10) -> Correo | None`:
-    1. `seleccion.seleccionar_para_correo(db, limite)`.
-    2. Si la lista viene vacía -> **no mandar nada** y devolver `None`
-       (`requirements.md` §4.3: "si hay resultados → correo"; un correo vacío
-       4 veces al día es la forma más rápida de que el usuario lo filtre).
-    3. `plantilla.render_correo(ofertas, portal_base_url)`.
-    4. `cliente.ClienteSMTP().enviar(...)` al `MAIL_TO` de config.
-    5. `seleccion.marcar_como_enviadas(db, ofertas)` -> fila en `correos`.
-       **Solo después de que el envío salió bien**: si se registra antes y el
-       SMTP falla, esas ofertas quedan marcadas como enviadas sin que el
-       usuario las haya visto nunca, y no vuelven a aparecer.
-- `enviar_alerta_conectores(db, fuentes_rotas: list[str]) -> None` (opcional,
-  puede ir al final): el canal real de la alerta que hoy solo loguea
-  `alerts/connector_health.py` (su docstring lo deja anotado como TODO de
-  Fase 3, y `requirements.md` §4.5 lo pide). Decidir: ¿correo aparte, o una
-  sección al pie del correo de ofertas? Un correo aparte por cada conector
-  roto en cada corrida es ruido; una línea al pie no se lee. Anotarlo.
-
-Reglas:
-- Un fallo de SMTP **no debe tumbar la corrida** ni perder datos: las ofertas
-  ya están en `ofertas`, el correo es solo la notificación. Loguear el error y
-  seguir (mismo criterio de aislamiento que los conectores en Fase 1 y el
-  worker en Fase 2).
-- Este módulo no arma HTML ni hace queries directas: compone `seleccion` +
-  `plantilla` + `cliente`. Si termina con SQL o markup adentro, algo se filtró
-  de la capa equivocada.
-- Lo llama `scheduler/jobs.py` como paso 3, después del worker de IA.
+Orquesta el envío. Etapa 3 del pipeline (design.md §1: `ofertas` -> correo
+top 5-10). Compone seleccion + plantilla + cliente -- no arma HTML ni hace
+queries directas.
 """
+
+import logging
+from typing import Optional
+
+from sqlalchemy.orm import Session
+
+from app.alerts.connector_health import fuentes_con_fallas_recurrentes
+from app.config import get_settings
+from app.correo.cliente import ClienteSMTP
+from app.correo.plantilla import render_correo, render_texto_plano
+from app.correo.seleccion import marcar_como_enviadas, seleccionar_para_correo
+from app.db.models import Correo
+
+logger = logging.getLogger(__name__)
+
+
+def enviar_correo_ofertas(
+    db: Session,
+    limite: int = 10,
+    client: Optional[ClienteSMTP] = None,
+    destinatario: Optional[str] = None,
+    portal_base_url: Optional[str] = None,
+) -> Optional[Correo]:
+    """
+    Selecciona ofertas, renderiza, envía y registra -- en ese orden. El
+    registro en `correos` ocurre SOLO después de que el envío SMTP salió
+    bien: si se registrara antes y el envío fallara, esas ofertas quedarían
+    marcadas como "ya vistas" sin que el usuario las haya visto nunca.
+
+    `destinatario`/`portal_base_url` sobreescriben la config (útil para
+    tests y para un futuro reenvío manual desde el portal); por defecto
+    salen de `MAIL_TO`/`PORTAL_BASE_URL`.
+    """
+    settings = get_settings()
+    destinatario = destinatario or settings.mail_to
+    portal_base_url = portal_base_url or settings.portal_base_url
+
+    ofertas = seleccionar_para_correo(db, limite)
+    if not ofertas:
+        logger.info("[correo] Sin ofertas elegibles, no se manda correo")
+        return None
+
+    if not destinatario:
+        logger.warning("[correo] MAIL_TO no configurado, no se puede enviar")
+        return None
+
+    fuentes_con_problemas = fuentes_con_fallas_recurrentes(db)
+    asunto, html = render_correo(ofertas, portal_base_url, fuentes_con_problemas)
+    texto = render_texto_plano(ofertas, portal_base_url)
+
+    client = client or ClienteSMTP()
+    try:
+        client.enviar(destinatario, asunto, html, texto)
+    except Exception as e:
+        # No tumbar la corrida por un fallo de SMTP: las ofertas ya están
+        # guardadas, el correo es solo la notificación (mismo criterio de
+        # aislamiento que los conectores en Fase 1 y el worker en Fase 2).
+        logger.error(f"[correo] Envío falló, NO se registra como enviado: {e}")
+        return None
+
+    correo = marcar_como_enviadas(db, ofertas)
+    logger.info(f"[correo] Enviado a {destinatario} con {len(ofertas)} ofertas (correo #{correo.id})")
+    return correo

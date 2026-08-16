@@ -17,6 +17,18 @@ class Settings(BaseSettings):
     # que el proyecto sirva a cualquier usuario sin datos personales en el repo.
     mail_to: Optional[str] = None
 
+    # SMTP (Fase 3) — Gmail con App Password en producción (requirements.md
+    # §10, DECISIÓN). En tests: MailHog (smtp_usa_tls=False, no habla TLS).
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_user: Optional[str] = None
+    smtp_password: Optional[str] = None  # App Password de 16 caracteres, NUNCA la del correo
+    mail_from: Optional[str] = None
+    smtp_usa_tls: bool = True
+
+    # URL base del portal (Fase 4) para los links de las cards del correo.
+    portal_base_url: str = "http://localhost:3000"
+
     # Adzuna (gratis, 1k llamadas/mes)
     adzuna_app_id: Optional[str] = None
     adzuna_app_key: Optional[str] = None

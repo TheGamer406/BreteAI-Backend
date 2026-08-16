@@ -1,37 +1,70 @@
 """
-TODO (Fase 3): cliente SMTP. Única puerta de salida hacia el servidor de
-correo -- ningún otro módulo abre conexiones SMTP (DRY, mismo criterio que
-`ai/client.py` con el LLM).
-
-Qué implementar acá:
-- `class ClienteSMTP` con:
-    - `enviar(self, destinatario: str, asunto: str, html: str, texto_plano: str | None = None) -> None`
-    - `esta_disponible(self) -> bool`: conexión de prueba para el smoke test
-      de CI (`design.md` §4, Transversal), sin mandar nada.
-- Usar `smtplib` + `email.message.EmailMessage` de la stdlib. No hace falta
-  una dependencia nueva; si igual se agrega una, justificar por qué.
-- Multipart: `text/plain` + `text/html` (ver `plantilla.py`).
-- Reintentos con backoff ante error de red: **reusar
-  `app.common.retry.reintentar_con_backoff`**, NO reimplementar el bucle
-  (ya lo comparten `connectors/base.py` y `ai/client.py`).
-
-Config nueva para `app/config.py` y los dos `.env.example`:
-    SMTP_HOST=smtp.gmail.com
-    SMTP_PORT=587                 # 587 = STARTTLS (el habitual de Gmail)
-    SMTP_USER=tu-correo@gmail.com
-    SMTP_PASSWORD=                # App Password de 16 caracteres, NO la del correo
-    MAIL_FROM=tu-correo@gmail.com
-    MAIL_TO=...                   # ya existe en config
-    PORTAL_BASE_URL=http://localhost:3000
-    SMTP_USA_TLS=true             # false para MailHog en tests (no habla TLS)
-
-Sobre Gmail (`requirements.md` §10, DECISIÓN cerrada):
-- Requiere **App Password**, no la contraseña normal de la cuenta: hay que
-  tener 2FA activo y generarla en la config de la cuenta de Google.
-- La App Password es un secreto: `.env` (gitignored) y GitHub Secrets para el
-  deploy. **Nunca** en el repo, en un log, ni en un mensaje de error.
-
-**En tests nunca se toca Gmail real** (`design.md` §4-C). Se usa MailHog
-(servicio a agregar en el `docker-compose.yml` de Infra): habla SMTP plano en
-:1025 y expone una API HTTP en :8025 para revisar lo recibido.
+Cliente SMTP. Única puerta de salida hacia el servidor de correo -- ningún
+otro módulo abre conexiones SMTP (DRY, mismo criterio que app/ai/client.py
+con el LLM).
 """
+
+import logging
+import smtplib
+from email.message import EmailMessage
+from typing import Optional
+
+from app.common.retry import reintentar_con_backoff
+from app.config import get_settings
+
+logger = logging.getLogger(__name__)
+
+
+class ClienteSMTP:
+    def __init__(
+        self,
+        host: Optional[str] = None,
+        port: Optional[int] = None,
+        usuario: Optional[str] = None,
+        password: Optional[str] = None,
+        remitente: Optional[str] = None,
+        usa_tls: Optional[bool] = None,
+    ):
+        settings = get_settings()
+        self.host = host or settings.smtp_host
+        self.port = port or settings.smtp_port
+        self.usuario = usuario if usuario is not None else settings.smtp_user
+        self.password = password if password is not None else settings.smtp_password
+        self.remitente = remitente or settings.mail_from or self.usuario
+        self.usa_tls = settings.smtp_usa_tls if usa_tls is None else usa_tls
+
+    def enviar(
+        self, destinatario: str, asunto: str, html: str, texto_plano: Optional[str] = None
+    ) -> None:
+        def _intento() -> None:
+            self._enviar_una_vez(destinatario, asunto, html, texto_plano)
+
+        reintentar_con_backoff(_intento, etiqueta="[correo.cliente]", logger=logger)
+
+    def _enviar_una_vez(
+        self, destinatario: str, asunto: str, html: str, texto_plano: Optional[str]
+    ) -> None:
+        mensaje = EmailMessage()
+        mensaje["Subject"] = asunto
+        mensaje["From"] = self.remitente
+        mensaje["To"] = destinatario
+        mensaje.set_content(texto_plano or "Este correo requiere un cliente compatible con HTML.")
+        mensaje.add_alternative(html, subtype="html")
+
+        with smtplib.SMTP(self.host, self.port, timeout=15) as smtp:
+            if self.usa_tls:
+                smtp.starttls()
+            if self.usuario and self.password:
+                smtp.login(self.usuario, self.password)
+            smtp.send_message(mensaje)
+
+    def esta_disponible(self) -> bool:
+        """Ping liviano para el healthcheck del smoke test de CI. No manda
+        nada, no usa reintentos -- un healthcheck debe fallar rápido."""
+        try:
+            with smtplib.SMTP(self.host, self.port, timeout=5) as smtp:
+                if self.usa_tls:
+                    smtp.starttls()
+            return True
+        except (smtplib.SMTPException, OSError):
+            return False

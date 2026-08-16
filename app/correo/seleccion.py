@@ -1,45 +1,68 @@
 """
-TODO (Fase 3): elegir QUÉ ofertas van en el correo. **Empezar por acá.**
-
-Es el paso que define si el correo sirve o es spam: se manda 4 veces al día
-(`requirements.md` §4.3), así que si siempre selecciona el mismo top 10 por
-score, el usuario recibe el mismo correo cuatro veces y lo empieza a ignorar.
-
-Qué implementar acá:
-- `seleccionar_para_correo(db: Session, limite: int = 10, score_minimo: int | None = None) -> list[Oferta]`:
-  devuelve las ofertas a incluir, ordenadas por `score` descendente.
-  Filtros que debe aplicar:
-    1. Solo **no aplicadas** (`requirements.md` §10). Ver decisión abierta abajo.
-    2. Con `score` no nulo (las que la IA no pudo analizar no van al correo).
-    3. Opcionalmente, `score >= score_minimo`.
-    4. **No repetir lo ya enviado** — ver decisión abierta, es la importante.
-- `marcar_como_enviadas(db, ofertas) -> Correo`: inserta la fila en `correos`
-  (tabla ya existe: `enviado_en`, `oferta_ids BIGINT[]`). Esa tabla es a la
-  vez el registro histórico Y la fuente para excluir repetidos en la próxima
-  corrida, además de alimentar la vista "último correo" del portal (Fase 4).
-
-Este módulo NO manda correos ni arma HTML: solo consulta y registra. Lo llama
-`envio.py` (misma separación que `staging.py` <-> `base.py` en Fase 1).
-
-## Decisiones abiertas (resolver al implementar y DEJARLO ESCRITO en el código)
-
-1. **¿Se re-envían ofertas ya enviadas?** (la decisión más importante de la fase)
-   - Opción A: excluir todo lo que ya apareció en algún `correos.oferta_ids`.
-     Cada correo trae solo novedades. Riesgo: una oferta con score alto que no
-     aplicaste se menciona una sola vez en la vida y se pierde.
-   - Opción B: excluir solo lo enviado en las últimas N horas/corridas. Insiste
-     con lo bueno sin ser repetitivo.
-   - Opción C: no excluir nada (siempre el top N global). Simple, pero el mismo
-     correo 4x/día.
-   Arrancar por (A) o (B); (C) es la que hace que el correo se vuelva ruido.
-
-2. **¿Qué estados cuentan como "no aplicada"?** Los estados son
-   `nueva|vista|aplicada|enProceso|enEspera|respondida|rechazada`
-   (`requirements.md` §6). Candidatos: solo `nueva`, o `nueva` + `vista`
-   (vista = la abriste pero no aplicaste todavía → tiene sentido recordártela).
-   `rechazada` claramente NO va.
-
-3. **¿Score mínimo?** Si en una corrida solo hay ofertas de score 15, ¿se manda
-   un correo con basura o no se manda nada? Un umbral (ej. 40) evita entrenar
-   al usuario a ignorar el correo. Definirlo como constante acá, no mágico.
+Elegir QUÉ ofertas van en el correo. `envio.py` es el único que llama a este
+módulo -- acá no se arma HTML ni se manda nada, solo se consulta y registra.
 """
+
+from datetime import datetime, timedelta, timezone
+from typing import Optional
+
+from sqlalchemy.orm import Session
+
+from app.db.models import Correo, Oferta
+
+# Estados que cuentan como "no aplicada" (requirements.md §6, §10). Se
+# incluye 'vista' porque tiene sentido recordarle al usuario una oferta que
+# abrió pero no llegó a aplicar; el resto de estados ya implican una
+# decisión tomada (aplicada, en proceso, rechazada...) y no deben reaparecer.
+ESTADOS_NO_APLICADA = ("nueva", "vista")
+
+# Score mínimo para entrar al correo -- evita mandar "ruido" que entrena al
+# usuario a ignorar el correo.
+SCORE_MINIMO_DEFAULT = 40
+
+# Decisión (opción B del diseño original): una oferta ya incluida en un
+# correo en las últimas N horas no se repite. Con 4 corridas/día esto evita
+# el mismo correo 4 veces seguidas, pero una oferta de score alto que sigue
+# sin aplicarse vuelve a aparecer al día siguiente como recordatorio -- ni
+# "nunca más" (se perdería) ni "siempre" (sería ruido).
+HORAS_EXCLUSION_REENVIO = 24
+
+
+def _ids_recientemente_enviados(db: Session, horas: int) -> set[int]:
+    desde = datetime.now(timezone.utc) - timedelta(hours=horas)
+    correos_recientes = db.query(Correo).filter(Correo.enviado_en >= desde).all()
+    ids: set[int] = set()
+    for correo in correos_recientes:
+        ids.update(correo.oferta_ids)
+    return ids
+
+
+def seleccionar_para_correo(
+    db: Session,
+    limite: int = 10,
+    score_minimo: Optional[int] = SCORE_MINIMO_DEFAULT,
+) -> list[Oferta]:
+    """Ofertas no aplicadas, con score, ordenadas por score descendente,
+    excluyendo lo enviado en las últimas `HORAS_EXCLUSION_REENVIO` horas."""
+    excluidos = _ids_recientemente_enviados(db, HORAS_EXCLUSION_REENVIO)
+
+    query = db.query(Oferta).filter(
+        Oferta.estado.in_(ESTADOS_NO_APLICADA),
+        Oferta.score.isnot(None),
+    )
+    if score_minimo is not None:
+        query = query.filter(Oferta.score >= score_minimo)
+    if excluidos:
+        query = query.filter(~Oferta.id.in_(excluidos))
+
+    return query.order_by(Oferta.score.desc()).limit(limite).all()
+
+
+def marcar_como_enviadas(db: Session, ofertas: list[Oferta]) -> Correo:
+    """Registra el envío en `correos`. Llamar SOLO después de que el envío
+    SMTP salió bien -- ver envio.py."""
+    correo = Correo(oferta_ids=[o.id for o in ofertas])
+    db.add(correo)
+    db.commit()
+    db.refresh(correo)
+    return correo

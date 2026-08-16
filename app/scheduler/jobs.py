@@ -3,6 +3,7 @@ import logging
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
+from app.correo.envio import enviar_correo_ofertas
 from app.db.session import db_session
 from app.pipeline.runner import ejecutar_corrida
 from app.pipeline.worker import procesar_pendientes, reprocesar_errores
@@ -11,9 +12,10 @@ logger = logging.getLogger(__name__)
 
 
 def _corrida_completa():
-    """Job que dispara el scheduler: scraping (Fase 1) seguido del análisis
-    de IA (Fase 2) sobre todo lo pendiente -- incluyendo raws en error que
-    entren dentro del tope de reintentos."""
+    """Job que dispara el scheduler: scraping (Fase 1) -> análisis de IA
+    (Fase 2) sobre todo lo pendiente -> correo con el top de ofertas
+    (Fase 3). Cada etapa es independiente: si el correo falla, no deshace
+    el scraping ni el análisis ya guardados."""
     ejecutar_corrida()
 
     with db_session() as db:
@@ -22,6 +24,10 @@ def _corrida_completa():
             logger.info(f"[scheduler] {reencoladas} raws en error re-encoladas")
         resultado = procesar_pendientes(db)
         logger.info(f"[scheduler] Análisis IA: {resultado}")
+
+        correo = enviar_correo_ofertas(db)
+        if correo:
+            logger.info(f"[scheduler] Correo #{correo.id} enviado")
 
 
 def iniciar_scheduler():
