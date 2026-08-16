@@ -1,0 +1,11 @@
+```json
+{
+  "resumen": "prueba de fences",
+  "requisitos": [],
+  "beneficios": [],
+  "seniority": null,
+  "empresa_real": null,
+  "score": 40,
+  "score_razon": "prueba"
+}
+```

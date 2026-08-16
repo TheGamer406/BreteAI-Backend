@@ -26,6 +26,19 @@ class Settings(BaseSettings):
     lever_companies: str = ""          # ej: "company1,company2"
     ashby_board_names: str = ""        # ej: "board1,board2"
 
+    # IA (Fase 2) — servidor con API OpenAI-compatible (Ollama en producción;
+    # LM Studio funciona igual para desarrollo local, mismo endpoint /v1/*).
+    ollama_host: str = "http://localhost:11434"
+    ollama_model: str = "qwen2.5:7b-instruct-q4_K_M"
+    ollama_modelo_embeddings: str = "nomic-embed-text"
+    ollama_timeout_segundos: int = 120
+
+    # Ruta al perfil TOON. Relativa (default): se resuelve contra la raíz
+    # del repo backend asumiendo el checkout monorepo (resources/ vive un
+    # nivel arriba de BreteAI-Backend/). Absoluta: para Docker/producción,
+    # apuntar a donde se monte el volumen con el perfil real.
+    perfil_path: str = "../resources/perfil.toon"
+
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=False)
 
     def get_greenhouse_tokens(self) -> list[str]:

@@ -1,0 +1,95 @@
+{
+  "_nota": "Calibrado contra qwen2.5-7b-instruct (Q4_K_M) el 2026-08-15. Cambiar de modelo puede exigir recalibrar los rangos.",
+  "casos": [
+    {
+      "id": "junior_backend_match",
+      "descripcion": "Junior backend Python remoto, stack del perfil -> score alto",
+      "rango_esperado": [65, 100],
+      "oferta": {
+        "fuente": "remotive",
+        "id_externo": "golden-1",
+        "titulo": "Junior Backend Developer (Python/Django)",
+        "empresa": "TechStartup",
+        "ubicacion": "Remote Worldwide",
+        "modalidad": "remoto",
+        "descripcion": "Buscamos un desarrollador backend junior con conocimientos de Python, SQL y Django. Trabajo 100% remoto, horario flexible. No se requiere experiencia previa extensa, ideal para alguien iniciando su carrera.",
+        "url": "https://example.com/golden-1"
+      }
+    },
+    {
+      "id": "senior_stack_ajeno",
+      "descripcion": "Senior con +5 años obligatorios, stack totalmente ajeno, sin reubicacion -> score bajo",
+      "rango_esperado": [0, 30],
+      "oferta": {
+        "fuente": "remotive",
+        "id_externo": "golden-2",
+        "titulo": "Senior Rust Systems Engineer (10+ years required)",
+        "empresa": "BigCorp",
+        "ubicacion": "Berlin, Germany (onsite only)",
+        "modalidad": "presencial",
+        "descripcion": "Rol senior que requiere 10+ anios de experiencia en Rust, C++ y desarrollo de kernel. Debe reubicarse a Berlin por cuenta propia, sin sponsorship de visa, sin opcion remota.",
+        "url": "https://example.com/golden-2"
+      }
+    },
+    {
+      "id": "puesto_totalmente_ajeno",
+      "descripcion": "Puesto sin relacion alguna con desarrollo de software -> score muy bajo",
+      "rango_esperado": [0, 20],
+      "oferta": {
+        "fuente": "remotive",
+        "id_externo": "golden-3",
+        "titulo": "Registered Nurse - ICU",
+        "empresa": "City Hospital",
+        "ubicacion": "Miami, FL (onsite)",
+        "modalidad": "presencial",
+        "descripcion": "Se busca enfermera registrada para unidad de cuidados intensivos. Se requiere licencia de enfermeria vigente y 3 anios de experiencia clinica. Turnos rotativos.",
+        "url": "https://example.com/golden-3"
+      }
+    },
+    {
+      "id": "data_junior_medio_match",
+      "descripcion": "Junior data analyst remoto, dentro de intereses del perfil (Data Science) pero con stack parcialmente distinto (R/Tableau vs Python) -> score medio-alto",
+      "rango_esperado": [45, 85],
+      "oferta": {
+        "fuente": "remotive",
+        "id_externo": "golden-4",
+        "titulo": "Junior Data Analyst (R, Tableau)",
+        "empresa": "DataCo",
+        "ubicacion": "Remote",
+        "modalidad": "remoto",
+        "descripcion": "Analista de datos junior con conocimientos de R, Tableau y estadistica basica. Se valora SQL. Posicion remota, salario acorde a nivel junior.",
+        "url": "https://example.com/golden-4"
+      }
+    },
+    {
+      "id": "no_tecnico_ventas",
+      "descripcion": "Rol de ventas/administrativo sin componente tecnico -> score bajo-medio",
+      "rango_esperado": [10, 40],
+      "oferta": {
+        "fuente": "remotive",
+        "id_externo": "golden-5",
+        "titulo": "Inside Sales Representative",
+        "empresa": "SalesForce Solutions",
+        "ubicacion": "Remote USA",
+        "modalidad": "remoto",
+        "descripcion": "Representante de ventas internas remoto, contacto con clientes potenciales por telefono y email. Se valora experiencia previa en ventas B2B. Comision atractiva.",
+        "url": "https://example.com/golden-5"
+      }
+    },
+    {
+      "id": "junior_fullstack_hibrido",
+      "descripcion": "Junior fullstack JS/React en modalidad mixta, dentro de las preferidas -> score alto",
+      "rango_esperado": [55, 100],
+      "oferta": {
+        "fuente": "remotive",
+        "id_externo": "golden-6",
+        "titulo": "Junior Fullstack Developer (JavaScript/React)",
+        "empresa": "WebAgency",
+        "ubicacion": "San Jose, Costa Rica (hybrid)",
+        "modalidad": "mixto",
+        "descripcion": "Desarrollador fullstack junior con JavaScript, React y Node.js. Modalidad hibrida en San Jose, Costa Rica. Ambiente de aprendizaje, mentoria disponible.",
+        "url": "https://example.com/golden-6"
+      }
+    }
+  ]
+}

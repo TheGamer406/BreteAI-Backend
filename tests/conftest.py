@@ -80,3 +80,30 @@ def corrida_factory(db_session):
         return corrida
 
     return _crear
+
+
+@pytest.fixture
+def oferta_raw_factory(db_session, corrida_factory):
+    """Helper para sembrar OfertaRaw sin repetir el INSERT en cada test
+    (usado por tests/integration/test_ai_worker.py)."""
+    from app.db.models import OfertaRaw
+
+    contador = {"n": 0}
+
+    def _crear(fuente: str = "remotive", payload: dict | None = None, **overrides):
+        contador["n"] += 1
+        defaults = {
+            "corrida_id": corrida_factory().id,
+            "fuente": fuente,
+            "id_externo": str(contador["n"]),
+            "payload": payload or {},
+            "estado_proc": "pendiente",
+        }
+        defaults.update(overrides)
+        raw = OfertaRaw(**defaults)
+        db_session.add(raw)
+        db_session.commit()
+        db_session.refresh(raw)
+        return raw
+
+    return _crear

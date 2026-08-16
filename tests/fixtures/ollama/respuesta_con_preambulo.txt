@@ -1,0 +1,1 @@
+Claro, aquí está el análisis: {"resumen":"prueba de preambulo","requisitos":[],"beneficios":[],"seniority":null,"empresa_real":null,"score":60,"score_razon":"prueba"}

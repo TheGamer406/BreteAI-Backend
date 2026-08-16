@@ -1,34 +1,85 @@
 """
-TODO (Fase 2): feedback simple del usuario → ajustes de los criterios del
-prompt. **NO es re-entrenamiento** (`requirements.md` §5.1, decisión cerrada:
-se mantiene simple).
+Feedback simple del usuario -> ajustes de los criterios del prompt. NO es
+re-entrenamiento (requirements.md §5.1, decisión cerrada).
 
-Flujo: el usuario corrige en el portal ("esta oferta no era senior, era
-junior" / "este score debería ser más alto") → se guarda una fila en
-`feedback_ia` (tabla ya existe: `oferta_id`, `campo`, `valor_ia`,
-`valor_correcto`, `nota`) → la próxima corrida arma el prompt incluyendo
-esas correcciones como criterios extra.
-
-Qué implementar acá:
-- `registrar_correccion(db, oferta_id, campo, valor_ia, valor_correcto,
-  nota=None) -> FeedbackIA`: inserta en `feedback_ia`. Lo llamará un endpoint
-  del portal en Fase 4; por ahora sirve para sembrar datos a mano.
-- `derivar_criterios(db, limite: int = 20) -> list[str]`: lee las correcciones
-  más recientes y las convierte en líneas de texto para inyectar en el prompt
-  (lo que `prompts.construir_prompt_analisis()` recibe como
-  `criterios_extra`). Ejemplo de salida:
-    "Si el título dice 'Engineer II' sin pedir +3 años, tratalo como mid, no senior."
-    "Ofertas de consultoras que no nombran al cliente final: bajar el score."
-
-Reglas:
-- **Tope de criterios** (`limite`): el prompt no puede crecer sin control o
-  desborda el contexto del modelo y degrada todo lo demás. Priorizar los más
-  recientes / más repetidos.
-- Agrupar correcciones repetidas en un solo criterio en vez de repetir 20
-  líneas casi iguales.
-- Esto NO modifica `perfil.toon` (el perfil es del usuario, el feedback es
-  del comportamiento del modelo — no mezclar las dos fuentes).
-
-Se puede dejar para el final de Fase 2: sin feedback acumulado todavía, el
-sistema funciona igual (`criterios_extra=None`).
+Flujo: el usuario corrige en el portal (Fase 4) -> se guarda en
+`feedback_ia` -> la próxima corrida arma el prompt incluyendo esas
+correcciones como `criterios_extra` (ver `app/ai/prompts.py`).
 """
+
+import logging
+from collections import Counter
+from typing import Optional
+
+from sqlalchemy.orm import Session
+
+from app.db.models import FeedbackIA
+
+logger = logging.getLogger(__name__)
+
+# Tope de criterios inyectados al prompt -- sin límite, el prompt crece sin
+# control y desborda el contexto del modelo, degradando todo lo demás.
+LIMITE_CRITERIOS_DEFAULT = 20
+
+
+def registrar_correccion(
+    db: Session,
+    oferta_id: int,
+    campo: str,
+    valor_ia: Optional[str],
+    valor_correcto: str,
+    nota: Optional[str] = None,
+) -> FeedbackIA:
+    """Guarda una corrección del usuario. La llamará un endpoint del portal
+    en Fase 4; por ahora sirve para sembrar datos a mano/en tests."""
+    feedback = FeedbackIA(
+        oferta_id=oferta_id,
+        campo=campo,
+        valor_ia=valor_ia,
+        valor_correcto=valor_correcto,
+        nota=nota,
+    )
+    db.add(feedback)
+    db.commit()
+    db.refresh(feedback)
+    return feedback
+
+
+def derivar_criterios(db: Session, limite: int = LIMITE_CRITERIOS_DEFAULT) -> list[str]:
+    """
+    Lee las correcciones más recientes y las convierte en líneas de texto
+    para `criterios_extra` del prompt. Agrupa correcciones repetidas del
+    mismo campo en un solo criterio en vez de repetir N líneas casi iguales.
+    """
+    correcciones = (
+        db.query(FeedbackIA).order_by(FeedbackIA.creado_en.desc()).limit(200).all()
+    )
+    if not correcciones:
+        return []
+
+    por_campo: dict[str, list[FeedbackIA]] = {}
+    for c in correcciones:
+        por_campo.setdefault(c.campo, []).append(c)
+
+    criterios: list[tuple[int, str]] = []  # (frecuencia, texto) para priorizar
+
+    for campo, items in por_campo.items():
+        if len(items) == 1:
+            c = items[0]
+            texto = f"Corrección en '{campo}': la IA dijo '{c.valor_ia}', el valor correcto era '{c.valor_correcto}'"
+            if c.nota:
+                texto += f" ({c.nota})"
+            criterios.append((1, texto))
+        else:
+            # Correcciones repetidas del mismo campo: un solo criterio
+            # agregado con las notas más frecuentes, no N líneas casi iguales.
+            notas = [c.nota for c in items if c.nota]
+            nota_comun = Counter(notas).most_common(1)[0][0] if notas else None
+            texto = f"Corrección recurrente en '{campo}' ({len(items)} veces)"
+            if nota_comun:
+                texto += f": {nota_comun}"
+            criterios.append((len(items), texto))
+
+    # Priorizar por frecuencia (más repetido primero), tope de `limite`.
+    criterios.sort(key=lambda x: x[0], reverse=True)
+    return [texto for _, texto in criterios[:limite]]

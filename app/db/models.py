@@ -109,8 +109,8 @@ class Oferta(Base):
     
     # Campos de IA
     resumen: Mapped[Optional[str]] = mapped_column(Text)
-    requisitos: Mapped[Optional[List[dict]]] = mapped_column(JSON)
-    beneficios: Mapped[Optional[List[dict]]] = mapped_column(JSON) 
+    requisitos: Mapped[Optional[List[str]]] = mapped_column(JSON)
+    beneficios: Mapped[Optional[List[str]]] = mapped_column(JSON) 
     seniority: Mapped[Optional[str]] = mapped_column(String(20))
     empresa_real: Mapped[Optional[str]] = mapped_column(Text)
     
@@ -118,6 +118,9 @@ class Oferta(Base):
     # se redeclara acá (mapped_column no acepta `check` como kwarg directo).
     score: Mapped[Optional[int]] = mapped_column(SmallInteger)
     score_razon: Mapped[Optional[str]] = mapped_column(Text)
+    # Vector para dedup semántico (app/ai/embeddings.py) -- lista simple +
+    # comparación en Python, no pgvector (ver docstring de embeddings.py).
+    embedding: Mapped[Optional[List[float]]] = mapped_column(JSON)
     
     # Campos de gestión
     estado: Mapped[str] = mapped_column(String(20), nullable=False, default='nueva') 

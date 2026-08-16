@@ -1,29 +1,62 @@
 """
-TODO (Fase 2): orquesta el análisis de UNA oferta. Es el "template method"
-de la capa de IA, equivalente a lo que `connectors/base.py` es para Fase 1.
+Orquesta el análisis de UNA oferta: prompt -> LLM -> validación. Template
+method de la capa de IA, equivalente a `connectors/base.py` en Fase 1.
 
-Qué implementar acá:
-- `analizar_oferta(oferta: OfertaCanonica, perfil: Perfil,
-  criterios_extra: list[str] | None = None) -> AnalisisIA`:
-    1. `prompts.construir_prompt_analisis(...)`
-    2. `client.OllamaClient().generar(prompt, formato_json=True)`
-    3. `schemas.parsear_respuesta_llm(texto)` → `AnalisisIA` validado
-    4. si el parseo falla → reintentar N veces (el modelo es no determinista,
-       un reintento suele arreglar un JSON roto). Tras agotar reintentos,
-       propagar `RespuestaIAInvalida` para que el worker marque la raw en
-       `error` y se pueda reprocesar después.
-- `MAX_REINTENTOS_PARSEO = 2` (constante acá, no mágica en el código).
-
-Reglas:
-- Este módulo **no toca la DB**. Recibe una oferta canónica, devuelve un
-  análisis validado. Persistir es responsabilidad de `pipeline/worker.py`
-  (misma separación que `connectors/base.py` ↔ `pipeline/staging.py`).
-- Este módulo **no sabe de `ofertas_raw`** ni de estados de procesamiento.
-- Log de cuánto tardó cada análisis (útil para calibrar si el modelo elegido
-  aguanta el volumen de 4 corridas diarias).
-
-Opcional en esta fase, evaluar al implementar: procesar en lote (varias
-ofertas por prompt) para amortizar la latencia. Ojo: subir el batch aumenta
-la probabilidad de JSON malformado, que es el Riesgo #1. Si se hace, que sea
-detrás de un flag y con el mismo `schemas.py` validando cada elemento.
+No toca la DB ni sabe de `ofertas_raw`/estados de procesamiento -- eso es
+responsabilidad de `app/pipeline/worker.py` (misma separación que
+`connectors/base.py` <-> `app/pipeline/staging.py`).
 """
+
+import logging
+import time
+from typing import Optional
+
+from app.ai.client import OllamaClient
+from app.ai.perfil import Perfil
+from app.ai.prompts import construir_prompt_analisis
+from app.ai.schemas import AnalisisIA, RespuestaIAInvalida, parsear_respuesta_llm
+from app.connectors.canonical import OfertaCanonica
+
+logger = logging.getLogger(__name__)
+
+MAX_REINTENTOS_PARSEO = 2  # el modelo es no determinista, reintentar suele arreglar un JSON roto
+
+
+def analizar_oferta(
+    oferta: OfertaCanonica,
+    perfil: Perfil,
+    criterios_extra: Optional[list[str]] = None,
+    client: Optional[OllamaClient] = None,
+) -> AnalisisIA:
+    """Analiza una oferta contra el perfil y devuelve un AnalisisIA validado.
+
+    Si la respuesta del LLM no se puede parsear, reintenta hasta
+    MAX_REINTENTOS_PARSEO veces (nueva llamada al modelo, no solo re-parsear
+    el mismo texto). Tras agotar los reintentos, propaga RespuestaIAInvalida
+    para que el worker marque la raw como `error` y la reprocese después.
+    """
+    client = client or OllamaClient()
+    prompt = construir_prompt_analisis(oferta, perfil, criterios_extra)
+
+    ultimo_error: Optional[RespuestaIAInvalida] = None
+    for intento in range(1, MAX_REINTENTOS_PARSEO + 1):
+        inicio = time.monotonic()
+        texto = client.generar(prompt, formato_json=True)
+        duracion = time.monotonic() - inicio
+
+        try:
+            analisis = parsear_respuesta_llm(texto)
+            logger.info(
+                f"[analyzer] '{oferta.titulo}' analizada en {duracion:.1f}s "
+                f"(intento {intento}), score={analisis.score}"
+            )
+            return analisis
+        except RespuestaIAInvalida as e:
+            ultimo_error = e
+            logger.warning(
+                f"[analyzer] '{oferta.titulo}': respuesta inválida en intento "
+                f"{intento}/{MAX_REINTENTOS_PARSEO} ({duracion:.1f}s): {e}"
+            )
+
+    assert ultimo_error is not None
+    raise ultimo_error

@@ -3,31 +3,10 @@ from datetime import datetime
 from app.db.models import Corrida
 from app.db.session import db_session
 from app.alerts.connector_health import registrar_fallo
-from app.connectors.adzuna import AdzunaConnector
-from app.connectors.arbeitnow import ArbeitnowConnector
-from app.connectors.ashby import AshbyConnector
-from app.connectors.greenhouse import GreenhouseConnector
-from app.connectors.himalayas import HimalayasConnector
-from app.connectors.jobicy import JobicyConnector
-from app.connectors.lever import LeverConnector
-from app.connectors.remoteok import RemoteOKConnector
-from app.connectors.remotive import RemotiveConnector
+from app.connectors.registro import conectores_para_corrida
 
 logger = logging.getLogger(__name__)
 
-# Único lugar del proyecto donde se lista qué conectores corren en cada
-# corrida (DRY: no se repite esta lista en tests ni en el scheduler).
-CONECTORES_REGISTRADOS = [
-    RemotiveConnector(),
-    RemoteOKConnector(),
-    ArbeitnowConnector(),
-    JobicyConnector(),
-    HimalayasConnector(),
-    AdzunaConnector(),
-    GreenhouseConnector(),
-    LeverConnector(),
-    AshbyConnector(),
-]
 
 def ejecutar_corrida() -> Corrida:
     """
@@ -57,7 +36,7 @@ def ejecutar_corrida() -> Corrida:
         # 2. Ejecutar cada conector — cada uno guarda sus propios items en
         # ofertas_raw internamente (ver BaseConnector.run()), acá solo se
         # registra éxito/fallo a nivel de fuente.
-        for conector in CONECTORES_REGISTRADOS:
+        for conector in conectores_para_corrida():
             fuente = conector.fuente
             try:
                 logger.info(f"Ejecutando conector: {fuente}")

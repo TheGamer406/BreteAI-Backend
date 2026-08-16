@@ -82,7 +82,7 @@ def test_run_conector_que_falla_no_pierde_items_ya_guardados(db_session, corrida
     conector = RemotiveConnector()
 
     with patch.object(conector, "_fetch", side_effect=ConnectionError("API caída")), \
-         patch("app.connectors.base.time.sleep"):  # no esperar los backoffs reales en el test
+         patch("app.common.retry.time.sleep"):  # no esperar los backoffs reales en el test
         try:
             conector.run(db_session, corrida.id)
             assert False, "run() debería haber propagado la excepción"

@@ -17,19 +17,16 @@ antes de guardarlo, nunca se guarda el canónico en vez del crudo.
 """
 
 import logging
-import time
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
+from app.common.retry import reintentar_con_backoff
 from app.connectors.canonical import OfertaCanonica
 from app.pipeline.staging import guardar_raw
 
 logger = logging.getLogger(__name__)
-
-MAX_REINTENTOS = 3
-BACKOFF_BASE_SEGUNDOS = 2  # 2s, 4s, 8s
 
 
 class BaseConnector(ABC):
@@ -96,19 +93,6 @@ class BaseConnector(ABC):
         (docs/requirements.md §4.5). Tras agotar los reintentos, propaga la
         excepción para que runner.py marque este conector como fallido sin
         tumbar la corrida completa."""
-        ultimo_error = None
-        for intento in range(1, MAX_REINTENTOS + 1):
-            try:
-                return self._fetch()
-            except Exception as e:
-                ultimo_error = e
-                if intento < MAX_REINTENTOS:
-                    espera = BACKOFF_BASE_SEGUNDOS ** intento
-                    logger.warning(
-                        f"[{self.fuente}] Intento {intento}/{MAX_REINTENTOS} falló: {e}. "
-                        f"Reintentando en {espera}s..."
-                    )
-                    time.sleep(espera)
-                else:
-                    logger.error(f"[{self.fuente}] Falló tras {MAX_REINTENTOS} intentos: {e}")
-        raise ultimo_error
+        return reintentar_con_backoff(
+            self._fetch, etiqueta=f"[{self.fuente}]", logger=logger
+        )
